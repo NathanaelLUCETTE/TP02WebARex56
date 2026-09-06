@@ -1,0 +1,277 @@
+<html>
+  <head>
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <!-- Moteur physique Cannon.js pour A-Frame -->
+    <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-physics-system@v4.2.2/dist/aframe-physics-system.min.js"></script>
+  </head>
+
+  <body>
+    <!-- Activation de la physique avec gravité de la Terre (-9.8 m/s²) -->
+    <a-scene physics="debug: false; gravity: -9.8">
+
+      <!-- TEXTURES -->
+      <a-assets>
+        <img id="grassTexture" src="Green-Grass-Texture.jpg">
+        <img id="skyTexture" src="Sunset-Sky-Texture.jpg">
+      </a-assets>
+
+      <!-- SOL (static-body) -->
+      <a-plane 
+        src="#grassTexture"
+        rotation="-90 0 0"
+        width="50"
+        height="50"
+        repeat="20 20"
+        position="0 0 0"
+        static-body="friction: 0.2; restitution: 0.1">
+      </a-plane>
+
+      <!-- SKYBOX -->
+      <a-sky src="#skyTexture"></a-sky>
+
+      <!-- PLAYER (CUBE PRINCIPAL) -->
+      <a-entity id="player"
+        geometry="primitive: box; height: 1; width: 1; depth: 1"
+        material="color: #e74c3c"
+        position="0 1 0"
+        dynamic-body="mass: 5; linearDamping: 0.5; angularDamping: 0.9"
+        player-controls>
+        <!-- Marqueur visuel (avant du cube) -->
+        <a-entity geometry="primitive: box; height: 0.2; width: 0.6; depth: 0.1"
+                  material="color: #2c3e50"
+                  position="0 0.25 -0.51">
+        </a-entity>
+      </a-entity>
+
+
+      <!-- =================================================== -->
+      <!-- EXERCICE 6 : CUBES INTERACTIFS AVEC PHYSIQUE        -->
+      <!-- =================================================== -->
+
+      <!-- Cube Bleu (Masse moyenne) -->
+      <a-entity geometry="primitive: box; height: 1; width: 1; depth: 1"
+                material="color: #3498db"
+                position="-2 0.5 -4"
+                dynamic-body="mass: 3; friction: 0.3; restitution: 0.2">
+      </a-entity>
+
+      <!-- Cube Vert (Léger, facile à éjecter) -->
+      <a-entity geometry="primitive: box; height: 0.8; width: 0.8; depth: 0.8"
+                material="color: #2ecc71"
+                position="2 0.4 -3"
+                dynamic-body="mass: 1; friction: 0.1; restitution: 0.5">
+      </a-entity>
+
+      <!-- Cube Jaune Lourd (Nécessite plus de force pour être déplacé) -->
+      <a-entity geometry="primitive: box; height: 1.5; width: 1.5; depth: 1.5"
+                material="color: #f1c40f"
+                position="0 0.75 -6"
+                dynamic-body="mass: 15; friction: 0.5; restitution: 0.05">
+      </a-entity>
+
+      <!-- Pile de cubes (Test d'empilement et d'impact chaotique) -->
+      <a-entity geometry="primitive: box; height: 1; width: 1; depth: 1"
+                material="color: #9b59b6"
+                position="3 0.5 -6"
+                dynamic-body="mass: 2; friction: 0.2">
+      </a-entity>
+      <a-entity geometry="primitive: box; height: 1; width: 1; depth: 1"
+                material="color: #e67e22"
+                position="3 1.6 -6"
+                dynamic-body="mass: 2; friction: 0.2">
+      </a-entity>
+      <a-entity geometry="primitive: box; height: 1; width: 1; depth: 1"
+                material="color: #1abc9c"
+                position="3 2.7 -6"
+                dynamic-body="mass: 2; friction: 0.2">
+      </a-entity>
+
+      <!-- Mur de petits cubes -->
+      <a-entity geometry="primitive: box; height: 0.6; width: 0.6; depth: 0.6"
+                material="color: #e84393"
+                position="-3 0.3 -2"
+                dynamic-body="mass: 0.8">
+      </a-entity>
+      <a-entity geometry="primitive: box; height: 0.6; width: 0.6; depth: 0.6"
+                material="color: #fd79a8"
+                position="-3.7 0.3 -2"
+                dynamic-body="mass: 0.8">
+      </a-entity>
+
+      <!-- CAMERA 3È PERSONNE -->
+      <a-entity id="orbit-camera"
+                camera
+                orbit-controls="target: #player;
+                                distance: -1;
+                                minDistance: -3;
+                                maxDistance: 15;
+                                minPolarAngle: 0;
+                                maxPolarAngle: 80;">
+      </a-entity>
+
+    </a-scene>
+
+    <!-- SCRIPT : CONTROLES DU JOUEUR -->
+    <script>
+      AFRAME.registerComponent('player-controls', {
+        init: function () {
+          this.speed = 12;
+          this.jumpForce = 5;
+          this.canJump = false;
+          this.keys = {};
+
+          window.addEventListener('keydown', e => this.keys[e.code] = true);
+          window.addEventListener('keyup', e => this.keys[e.code] = false);
+
+          this.el.addEventListener('body-loaded', () => {
+            const body = this.el.body;
+
+            // Verrouiller la rotation sur X et Z pour garder le cube joueur debout lors des chocs
+            body.angularFactor.set(0, 1, 0);
+
+            // Gestion du contact pour réautoriser le saut
+            this.el.addEventListener('collide', (e) => {
+              this.canJump = true;
+            });
+          });
+        },
+
+        tick: function () {
+          if (!this.el.body) return;
+
+          const body = this.el.body;
+
+          // Orientation de la caméra
+          const cam = document.querySelector('[camera]').object3D;
+          const forward = new THREE.Vector3();
+          cam.getWorldDirection(forward);
+          forward.negate();
+          forward.y = 0;
+          forward.normalize();
+
+          const right = new THREE.Vector3();
+          right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+
+          // Calcul des déplacements W, A, S, D
+          let moveDir = new THREE.Vector3();
+          if (this.keys["KeyW"]) moveDir.add(forward);
+          if (this.keys["KeyS"]) moveDir.sub(forward);
+          if (this.keys["KeyA"]) moveDir.sub(right);
+          if (this.keys["KeyD"]) moveDir.add(right);
+
+          if (moveDir.lengthSq() > 0) {
+            moveDir.normalize();
+            body.velocity.x = moveDir.x * this.speed;
+            body.velocity.z = moveDir.z * this.speed;
+          } else {
+            body.velocity.x *= 0.85;
+            body.velocity.z *= 0.85;
+          }
+
+          // Saut (Touche Espace)
+          if (this.keys["Space"] && this.canJump) {
+            body.applyImpulse(
+              new CANNON.Vec3(0, this.jumpForce, 0),
+              new CANNON.Vec3().copy(body.position)
+            );
+            this.canJump = false;
+          }
+        }
+      });
+    </script>
+
+   <!-- SCRIPT : CAMERA ORBITALE (VERSION CORRIGÉE POUR VUE 3ÈME PERSONNE) -->
+<script>
+  AFRAME.registerComponent('orbit-controls', {
+    schema: {
+      target: { type: 'selector' },
+      distance: { default: 6 },
+      minDistance: { default: 2 },
+      maxDistance: { default: 15 },
+      minPolarAngle: { default: 20 },
+      maxPolarAngle: { default: 80 }
+    },
+
+    init: function () {
+      this.theta = 0;
+      this.phi = THREE.MathUtils.degToRad(55); // Inclinaison initiale (vue du haut)
+      this.zoomSpeed = 0.2;
+      this.rotateSpeed = 0.3;
+
+      this.mouseDown = false;
+      this.lastX = 0;
+      this.lastY = 0;
+
+      // Événements pour faire tourner la caméra à la souris
+      window.addEventListener('mousedown', e => {
+        if (e.button === 0) {
+          this.mouseDown = true;
+          this.lastX = e.clientX;
+          this.lastY = e.clientY;
+        }
+      });
+
+      window.addEventListener('mouseup', () => this.mouseDown = false);
+
+      window.addEventListener('mousemove', e => {
+        if (!this.mouseDown) return;
+
+        const dx = e.clientX - this.lastX;
+        const dy = e.clientY - this.lastY;
+
+        this.lastX = e.clientX;
+        this.lastY = e.clientY;
+
+        this.theta -= dx * this.rotateSpeed * 0.01;
+        this.phi -= dy * this.rotateSpeed * 0.01;
+
+        // Empêcher la caméra de passer sous le sol ou d'être trop verticale
+        this.phi = THREE.MathUtils.clamp(
+          this.phi,
+          THREE.MathUtils.degToRad(this.data.minPolarAngle),
+          THREE.MathUtils.degToRad(this.data.maxPolarAngle)
+        );
+      });
+
+      // Zoom à la molette
+      window.addEventListener('wheel', e => {
+        this.data.distance += e.deltaY * this.zoomSpeed * 0.01;
+        this.data.distance = THREE.MathUtils.clamp(
+          this.data.distance,
+          this.data.minDistance,
+          this.data.maxDistance
+        );
+      });
+    },
+
+    tick: function () {
+      if (!this.data.target) return;
+
+      // 1. Position du cube cible
+      const targetPos = this.data.target.object3D.position;
+
+      // 2. Point visé : légèrement au-dessus du centre du cube (hauteur du regard)
+      const lookAtPos = new THREE.Vector3(
+        targetPos.x,
+        targetPos.y+0.5,
+        targetPos.z
+      );
+
+      // 3. Calcul des coordonnées sphériques pour placer la caméra en orbite (reculée)
+      const x = lookAtPos.x + this.data.distance * Math.sin(this.theta) * Math.sin(this.phi);
+      const y = lookAtPos.y + this.data.distance * Math.cos(this.phi);
+      const z = lookAtPos.z + this.data.distance * Math.cos(this.theta) * Math.sin(this.phi);
+
+      // 4. Appliquer la nouvelle position à la caméra
+      this.el.object3D.position.set(x, y, z);
+      
+      // 5. Orienter la caméra vers le cube
+      this.el.object3D.lookAt(lookAtPos);
+
+      // 6. FORCER la mise à jour de la matrice (Résout le problème de caméra bloquée au centre)
+      this.el.object3D.updateMatrixWorld(true);
+    }
+  });
+</script>
+  </body>
+</html>
