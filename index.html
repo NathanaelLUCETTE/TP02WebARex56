@@ -6,16 +6,12 @@
   </head>
 
   <body>
-    <!-- Activation de la physique avec gravité de la Terre (-9.8 m/s²) -->
     <a-scene physics="debug: false; gravity: -9.8">
 
-      <!-- TEXTURES -->
       <a-assets>
         <img id="grassTexture" src="Green-Grass-Texture.jpg">
         <img id="skyTexture" src="Sunset-Sky-Texture.jpg">
       </a-assets>
-
-      <!-- SOL (static-body) -->
       <a-plane 
         src="#grassTexture"
         rotation="-90 0 0"
@@ -25,11 +21,7 @@
         position="0 0 0"
         static-body="friction: 0.2; restitution: 0.1">
       </a-plane>
-
-      <!-- SKYBOX -->
       <a-sky src="#skyTexture"></a-sky>
-
-      <!-- PLAYER (CUBE PRINCIPAL) -->
       <a-entity id="player"
         geometry="primitive: box; height: 1; width: 1; depth: 1"
         material="color: #e74c3c"
@@ -42,12 +34,9 @@
                   position="0 0.25 -0.51">
         </a-entity>
       </a-entity>
-
-
       <!-- =================================================== -->
       <!-- EXERCICE 6 : CUBES INTERACTIFS AVEC PHYSIQUE        -->
       <!-- =================================================== -->
-
       <!-- Cube Bleu (Masse moyenne) -->
       <a-entity geometry="primitive: box; height: 1; width: 1; depth: 1"
                 material="color: #3498db"
